@@ -60,10 +60,12 @@ extension GRPCInterceptor: UnaryInterceptor {
         }
 
         let contentType = response.headers[HeaderConstants.contentType]?.first ?? ""
+
         if !self.contentTypeIsExpectedGRPC(contentType) {
             // If content-type looks like it could be a gRPC server's response, consider
             // this an internal error.
             let code: Code = self.contentTypeIsGRPC(contentType) ? .internalError : .unknown
+
             proceed(HTTPResponse(
                 code: code, headers: response.headers, message: nil, trailers: response.trailers,
                 error: ConnectError(code: code, message: "unexpected content-type: \(contentType)"),
@@ -151,7 +153,7 @@ extension GRPCInterceptor: UnaryInterceptor {
                 error: nil,
                 tracingInfo: response.tracingInfo
             ))
-        } catch let error {
+        } catch {
             proceed(HTTPResponse(
                 code: .unknown,
                 headers: response.headers,
@@ -227,7 +229,7 @@ extension GRPCInterceptor: StreamInterceptor {
                     rawData, compressionPool: responseCompressionPool
                 ).unpacked
                 proceed(.message(unpackedMessage))
-            } catch let error {
+            } catch {
                 // TODO: Close the stream here?
                 proceed(.complete(code: .unknown, error: error, trailers: nil))
             }
@@ -263,13 +265,13 @@ extension GRPCInterceptor: StreamInterceptor {
 
     private func contentTypeIsGRPC(_ contentType: String) -> Bool {
         return contentType == "application/grpc"
-        || contentType.hasPrefix("application/grpc+")
+            || contentType.hasPrefix("application/grpc+")
     }
 
     private func contentTypeIsExpectedGRPC(_ contentType: String) -> Bool {
         let codecName = self.config.codec.name()
         return (codecName == "proto" && contentType == "application/grpc")
-        || contentType == "application/grpc+\(codecName)"
+            || contentType == "application/grpc+\(codecName)"
     }
 }
 
